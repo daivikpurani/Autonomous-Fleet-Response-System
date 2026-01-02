@@ -1,13 +1,17 @@
-"""Configuration settings for operator service.
-
-TODO: Implement settings for:
-- Database connection
-- Kafka consumer/producer configuration
-- WebSocket configuration
-"""
+"""Configuration settings for operator service."""
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+
+@dataclass
+class DatabaseConfig:
+    """Database configuration."""
+
+    database_url: str = os.getenv(
+        "DATABASE_URL",
+        "postgresql://postgres:postgres@localhost:5432/fleetops",
+    )
 
 
 @dataclass
@@ -33,6 +37,7 @@ class KafkaProducerConfig:
 class OperatorConfig:
     """Operator service configuration."""
 
-    kafka_consumer: KafkaConsumerConfig = KafkaConsumerConfig()
-    kafka_producer: KafkaProducerConfig = KafkaProducerConfig()
+    database: DatabaseConfig = field(default_factory=DatabaseConfig)
+    kafka_consumer: KafkaConsumerConfig = field(default_factory=KafkaConsumerConfig)
+    kafka_producer: KafkaProducerConfig = field(default_factory=KafkaProducerConfig)
 
