@@ -5,7 +5,7 @@ All models include event_time, processing_time, and appropriate identifiers.
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -58,7 +58,9 @@ class AnomalyEvent(BaseModel):
     rule_name: str = Field(..., description="Name of the rule that triggered this anomaly")
     features: Dict[str, Any] = Field(..., description="Feature values used in detection")
     thresholds: Dict[str, Any] = Field(..., description="Threshold values used in detection")
-    severity: str = Field(..., description="Severity level: INFO, WARNING, or CRITICAL")
+    severity: Literal["INFO", "WARNING", "CRITICAL"] = Field(
+        ..., description="Severity level: INFO, WARNING, or CRITICAL"
+    )
 
 
 class OperatorActionEvent(BaseModel):

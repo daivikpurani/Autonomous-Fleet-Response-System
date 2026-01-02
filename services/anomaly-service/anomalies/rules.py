@@ -246,7 +246,7 @@ class PerceptionInstabilityRule:
         if len(frames) >= 2:
             prev_frame = frames[-2]
             curr_frame = frames[-1]
-            if prev_frame.label_probabilities is not None and curr_frame.label_probabilities is not None:
+            if prev_frame.label_probabilities and curr_frame.label_probabilities:
                 prev_max_prob = max(prev_frame.label_probabilities)
                 curr_max_prob = max(curr_frame.label_probabilities)
                 prob_change = abs(curr_max_prob - prev_max_prob)
