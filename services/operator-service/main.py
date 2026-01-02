@@ -175,8 +175,7 @@ def _run_telemetry_consumer() -> None:
 async def kafka_consumer_task() -> None:
     """Background task wrapper for Kafka consumer (runs consumer in thread)."""
     global _executor, _event_loop
-    if _event_loop is None:
-        _event_loop = asyncio.get_event_loop()
+    _event_loop = asyncio.get_running_loop()
     
     # Executor should be initialized before tasks are created
     if _executor is None:
@@ -185,7 +184,7 @@ async def kafka_consumer_task() -> None:
     
     try:
         # Run blocking Kafka consumer in thread pool
-        await asyncio.get_event_loop().run_in_executor(_executor, _run_kafka_consumer)
+        await asyncio.get_running_loop().run_in_executor(_executor, _run_kafka_consumer)
     except Exception as e:
         logger.error(f"Kafka consumer task error: {e}", exc_info=True)
 
@@ -193,8 +192,7 @@ async def kafka_consumer_task() -> None:
 async def telemetry_consumer_task() -> None:
     """Background task wrapper for telemetry consumer (runs consumer in thread)."""
     global _executor, _event_loop
-    if _event_loop is None:
-        _event_loop = asyncio.get_event_loop()
+    _event_loop = asyncio.get_running_loop()
     
     # Executor should be initialized before tasks are created
     if _executor is None:
@@ -203,7 +201,7 @@ async def telemetry_consumer_task() -> None:
     
     try:
         # Run blocking telemetry consumer in thread pool
-        await asyncio.get_event_loop().run_in_executor(_executor, _run_telemetry_consumer)
+        await asyncio.get_running_loop().run_in_executor(_executor, _run_telemetry_consumer)
     except Exception as e:
         logger.error(f"Telemetry consumer task error: {e}", exc_info=True)
 
@@ -222,7 +220,7 @@ async def lifespan(app: FastAPI):
     # Initialize shared thread pool executor for consumer tasks
     # Create with 2 workers: one for Kafka consumer, one for telemetry consumer
     global _executor, _event_loop
-    _event_loop = asyncio.get_event_loop()
+    _event_loop = asyncio.get_running_loop()
     _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="kafka-consumer")
 
     # Start Kafka consumer background tasks
