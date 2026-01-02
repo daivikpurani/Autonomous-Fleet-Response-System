@@ -243,11 +243,12 @@ class PerceptionInstabilityRule:
                 )
 
         # Check for label probability instability
-        if event.label_probabilities is not None and len(frames) >= 2:
+        if len(frames) >= 2:
             prev_frame = frames[-2]
-            if prev_frame.label_probabilities is not None:
+            curr_frame = frames[-1]
+            if prev_frame.label_probabilities is not None and curr_frame.label_probabilities is not None:
                 prev_max_prob = max(prev_frame.label_probabilities)
-                curr_max_prob = max(event.label_probabilities)
+                curr_max_prob = max(curr_frame.label_probabilities)
                 prob_change = abs(curr_max_prob - prev_max_prob)
 
                 feature_values["label_probability_change"] = prob_change
