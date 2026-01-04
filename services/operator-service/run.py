@@ -117,6 +117,15 @@ if __name__ == "__main__":
     reload = "--reload" in sys.argv
     
     if reload:
-        uvicorn.run(app, host="0.0.0.0", port=port, reload=True, reload_dirs=[str(service_dir)])
+        # When reload=True, uvicorn needs a string import path (module:variable)
+        # Format: "package.module:variable"
+        # Use this module's app (which imports from main.py)
+        uvicorn.run(
+            "services.operator_service.run:app",
+            host="0.0.0.0",
+            port=port,
+            reload=True
+        )
     else:
+        # When reload=False, we can pass the app object directly
         uvicorn.run(app, host="0.0.0.0", port=port)

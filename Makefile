@@ -62,8 +62,8 @@ health:
 		echo "  Container not running"; \
 	elif [ "$$KAFKA_STATUS" != "healthy" ]; then \
 		echo "  $$KAFKA_STATUS"; \
-		@echo "  Checking for cluster ID mismatch..."; \
-		@./scripts/check_kafka_cluster_id.sh 2>/dev/null || echo "  (Run 'make kafka-check' for details)"; \
+		echo "  Checking for cluster ID mismatch..."; \
+		./scripts/check_kafka_cluster_id.sh 2>/dev/null || echo "  (Run 'make kafka-check' for details)"; \
 	else \
 		echo "  $$KAFKA_STATUS"; \
 	fi
