@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api } from "../services/api";
+import { useTheme } from "../contexts/ThemeContext";
 import type { Alert, Vehicle, ActionType } from "../types";
 
 interface ActionButtonsProps {
@@ -15,6 +16,7 @@ export function ActionButtons({
   vehicle,
   onActionComplete,
 }: ActionButtonsProps) {
+  const { theme } = useTheme();
   const [operatorId, setOperatorId] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -73,9 +75,10 @@ export function ActionButtons({
   const buttonStyle: React.CSSProperties = {
     padding: "8px 16px",
     margin: "4px",
-    border: "1px solid #ddd",
+    border: `1px solid ${theme.colors.border}`,
     borderRadius: "4px",
-    backgroundColor: "#fff",
+    backgroundColor: theme.colors.surface,
+    color: theme.colors.text,
     cursor: "pointer",
     fontSize: "12px",
     transition: "all 0.2s",
@@ -89,15 +92,17 @@ export function ActionButtons({
 
   return (
     <div style={{ padding: "16px" }}>
-      <h2 style={{ margin: "0 0 16px 0", fontSize: "18px" }}>Actions</h2>
+      <h2 style={{ margin: "0 0 16px 0", fontSize: "18px", color: theme.colors.text }}>
+        Actions
+      </h2>
 
       {error && (
         <div
           style={{
             padding: "8px",
             marginBottom: "12px",
-            backgroundColor: "#ffebee",
-            color: "#c62828",
+            backgroundColor: theme.mode === "dark" ? "#4a1f1f" : "#ffebee",
+            color: theme.colors.error,
             borderRadius: "4px",
             fontSize: "12px",
           }}
@@ -109,7 +114,13 @@ export function ActionButtons({
       {/* Alert Actions */}
       {alert && (
         <div style={{ marginBottom: "16px" }}>
-          <div style={{ fontSize: "12px", color: "#666", marginBottom: "8px" }}>
+          <div
+            style={{
+              fontSize: "12px",
+              color: theme.colors.textSecondary,
+              marginBottom: "8px",
+            }}
+          >
             Alert Actions
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -141,7 +152,13 @@ export function ActionButtons({
       {/* Vehicle Actions */}
       {vehicle && (
         <div style={{ marginBottom: "16px" }}>
-          <div style={{ fontSize: "12px", color: "#666", marginBottom: "8px" }}>
+          <div
+            style={{
+              fontSize: "12px",
+              color: theme.colors.textSecondary,
+              marginBottom: "8px",
+            }}
+          >
             Vehicle Actions
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -179,7 +196,13 @@ export function ActionButtons({
       {/* Assign Operator */}
       {vehicle && (
         <div>
-          <div style={{ fontSize: "12px", color: "#666", marginBottom: "8px" }}>
+          <div
+            style={{
+              fontSize: "12px",
+              color: theme.colors.textSecondary,
+              marginBottom: "8px",
+            }}
+          >
             Assign Operator
           </div>
           <div style={{ display: "flex", gap: "4px" }}>
@@ -191,9 +214,11 @@ export function ActionButtons({
               style={{
                 flex: 1,
                 padding: "4px 8px",
-                border: "1px solid #ddd",
+                border: `1px solid ${theme.colors.border}`,
                 borderRadius: "4px",
                 fontSize: "12px",
+                backgroundColor: theme.colors.surface,
+                color: theme.colors.text,
               }}
               onKeyPress={(e) => {
                 if (e.key === "Enter") {
@@ -215,7 +240,7 @@ export function ActionButtons({
       )}
 
       {!alert && !vehicle && (
-        <div style={{ fontSize: "12px", color: "#888", textAlign: "center" }}>
+        <div style={{ fontSize: "12px", color: theme.colors.textMuted, textAlign: "center" }}>
           Select an alert or vehicle to perform actions
         </div>
       )}

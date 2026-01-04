@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
+import { useTheme } from "../contexts/ThemeContext";
 import type { Vehicle, VehicleState } from "../types";
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || "";
@@ -25,6 +26,7 @@ export function MapView({
   onVehicleClick,
   mapCenter,
 }: MapViewProps) {
+  const { theme } = useTheme();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
@@ -62,9 +64,15 @@ export function MapView({
   useEffect(() => {
     if (!mapContainerRef.current || !MAPBOX_TOKEN || initialCenter === null) return;
 
+    // Use dark style in dark mode, light style in light mode
+    const mapStyle =
+      theme.mode === "dark"
+        ? "mapbox://styles/mapbox/dark-v11"
+        : "mapbox://styles/mapbox/streets-v12";
+
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
-      style: "mapbox://styles/mapbox/streets-v12",
+      style: mapStyle,
       center: [initialCenter.lng, initialCenter.lat],
       zoom: 15,
       accessToken: MAPBOX_TOKEN,
@@ -76,7 +84,7 @@ export function MapView({
       map.remove();
       mapRef.current = null;
     };
-  }, [initialCenter]);
+  }, [initialCenter, theme.mode]);
 
   // Update vehicle markers
   useEffect(() => {
@@ -136,7 +144,11 @@ export function MapView({
           el.style.width = `${radius * 2}px`;
           el.style.height = `${radius * 2}px`;
           el.style.backgroundColor = color;
-          el.style.borderColor = isSelected ? "#000" : color;
+          el.style.borderColor = isSelected
+            ? theme.mode === "dark"
+              ? "#fff"
+              : "#000"
+            : color;
           el.style.borderWidth = isSelected ? "2px" : "1px";
         }
       } else {
@@ -147,9 +159,9 @@ export function MapView({
         el.style.height = `${radius * 2}px`;
         el.style.borderRadius = "50%";
         el.style.backgroundColor = color;
-        el.style.border = `2px solid ${isSelected ? "#000" : color}`;
+        el.style.border = `2px solid ${isSelected ? (theme.mode === "dark" ? "#fff" : "#000") : color}`;
         el.style.cursor = "pointer";
-        el.style.boxShadow = "0 2px 4px rgba(0,0,0,0.3)";
+        el.style.boxShadow = theme.mode === "dark" ? "0 2px 4px rgba(255,255,255,0.3)" : "0 2px 4px rgba(0,0,0,0.3)";
 
         const marker = new mapboxgl.Marker(el)
           .setLngLat([lng, lat])
@@ -162,11 +174,11 @@ export function MapView({
         markersRef.current.set(vehicle.vehicle_id, marker);
       }
     });
-  }, [vehicles, selectedVehicleId, onVehicleClick, initialCenter]);
+  }, [vehicles, selectedVehicleId, onVehicleClick, initialCenter, theme.mode]);
 
   if (!MAPBOX_TOKEN) {
     return (
-      <div style={{ padding: "20px", textAlign: "center" }}>
+      <div style={{ padding: "20px", textAlign: "center", color: theme.colors.text }}>
         <p>Mapbox token not configured. Set VITE_MAPBOX_TOKEN environment variable.</p>
       </div>
     );
@@ -174,7 +186,7 @@ export function MapView({
 
   if (initialCenter === null) {
     return (
-      <div style={{ padding: "20px", textAlign: "center" }}>
+      <div style={{ padding: "20px", textAlign: "center", color: theme.colors.text }}>
         <p>Loading map...</p>
       </div>
     );

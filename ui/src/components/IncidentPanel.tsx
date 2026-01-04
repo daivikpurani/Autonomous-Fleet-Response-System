@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "../services/api";
+import { useTheme } from "../contexts/ThemeContext";
 import type { Alert, Action, Severity } from "../types";
 
 interface IncidentPanelProps {
@@ -9,6 +10,7 @@ interface IncidentPanelProps {
 }
 
 export function IncidentPanel({ alert }: IncidentPanelProps) {
+  const { theme } = useTheme();
   const [actions, setActions] = useState<Action[]>([]);
   const [loadingActions, setLoadingActions] = useState(false);
 
@@ -42,7 +44,7 @@ export function IncidentPanel({ alert }: IncidentPanelProps) {
 
   if (!alert) {
     return (
-      <div style={{ padding: "16px", color: "#888", textAlign: "center" }}>
+      <div style={{ padding: "16px", color: theme.colors.textMuted, textAlign: "center" }}>
         Select an alert to view incident details
       </div>
     );
@@ -66,22 +68,28 @@ export function IncidentPanel({ alert }: IncidentPanelProps) {
 
   return (
     <div style={{ padding: "16px", overflowY: "auto", height: "100%" }}>
-      <h2 style={{ margin: "0 0 16px 0", fontSize: "18px" }}>Incident Details</h2>
+      <h2 style={{ margin: "0 0 16px 0", fontSize: "18px", color: theme.colors.text }}>
+        Incident Details
+      </h2>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
         {/* Rule Name */}
         <div>
-          <div style={{ fontSize: "12px", color: "#666", marginBottom: "4px" }}>
+          <div
+            style={{ fontSize: "12px", color: theme.colors.textSecondary, marginBottom: "4px" }}
+          >
             Rule Name
           </div>
-          <div style={{ fontSize: "14px", fontWeight: "bold" }}>
+          <div style={{ fontSize: "14px", fontWeight: "bold", color: theme.colors.text }}>
             {alert.rule_name}
           </div>
         </div>
 
         {/* Severity */}
         <div>
-          <div style={{ fontSize: "12px", color: "#666", marginBottom: "4px" }}>
+          <div
+            style={{ fontSize: "12px", color: theme.colors.textSecondary, marginBottom: "4px" }}
+          >
             Severity
           </div>
           <div
@@ -101,10 +109,12 @@ export function IncidentPanel({ alert }: IncidentPanelProps) {
 
         {/* Event Times */}
         <div>
-          <div style={{ fontSize: "12px", color: "#666", marginBottom: "4px" }}>
+          <div
+            style={{ fontSize: "12px", color: theme.colors.textSecondary, marginBottom: "4px" }}
+          >
             Event Times
           </div>
-          <div style={{ fontSize: "12px" }}>
+          <div style={{ fontSize: "12px", color: theme.colors.text }}>
             <div>First seen: {new Date(alert.first_seen_event_time).toLocaleString()}</div>
             <div>Last seen: {new Date(alert.last_seen_event_time).toLocaleString()}</div>
           </div>
@@ -112,10 +122,12 @@ export function IncidentPanel({ alert }: IncidentPanelProps) {
 
         {/* Scene Info */}
         <div>
-          <div style={{ fontSize: "12px", color: "#666", marginBottom: "4px" }}>
+          <div
+            style={{ fontSize: "12px", color: theme.colors.textSecondary, marginBottom: "4px" }}
+          >
             Scene Info
           </div>
-          <div style={{ fontSize: "12px" }}>
+          <div style={{ fontSize: "12px", color: theme.colors.text }}>
             Scene ID: {alert.scene_id}
             <br />
             Frame Index: {alert.frame_index}
@@ -124,24 +136,35 @@ export function IncidentPanel({ alert }: IncidentPanelProps) {
 
         {/* Status */}
         <div>
-          <div style={{ fontSize: "12px", color: "#666", marginBottom: "4px" }}>
+          <div
+            style={{ fontSize: "12px", color: theme.colors.textSecondary, marginBottom: "4px" }}
+          >
             Status
           </div>
-          <div style={{ fontSize: "14px", fontWeight: "bold" }}>{alert.status}</div>
+          <div style={{ fontSize: "14px", fontWeight: "bold", color: theme.colors.text }}>
+            {alert.status}
+          </div>
         </div>
 
         {/* Features */}
         {Object.keys(features).length > 0 && (
           <div>
-            <div style={{ fontSize: "12px", color: "#666", marginBottom: "8px" }}>
+            <div
+              style={{
+                fontSize: "12px",
+                color: theme.colors.textSecondary,
+                marginBottom: "8px",
+              }}
+            >
               Features
             </div>
             <div
               style={{
-                backgroundColor: "#f5f5f5",
+                backgroundColor: theme.colors.surfaceSecondary,
                 padding: "8px",
                 borderRadius: "4px",
                 fontSize: "12px",
+                color: theme.colors.text,
               }}
             >
               {Object.entries(features).map(([key, value]) => (
@@ -156,15 +179,22 @@ export function IncidentPanel({ alert }: IncidentPanelProps) {
         {/* Thresholds */}
         {Object.keys(thresholds).length > 0 && (
           <div>
-            <div style={{ fontSize: "12px", color: "#666", marginBottom: "8px" }}>
+            <div
+              style={{
+                fontSize: "12px",
+                color: theme.colors.textSecondary,
+                marginBottom: "8px",
+              }}
+            >
               Thresholds
             </div>
             <div
               style={{
-                backgroundColor: "#f5f5f5",
+                backgroundColor: theme.colors.surfaceSecondary,
                 padding: "8px",
                 borderRadius: "4px",
                 fontSize: "12px",
+                color: theme.colors.text,
               }}
             >
               {Object.entries(thresholds).map(([key, value]) => (
@@ -178,20 +208,27 @@ export function IncidentPanel({ alert }: IncidentPanelProps) {
 
         {/* Last 5 Actions */}
         <div>
-          <div style={{ fontSize: "12px", color: "#666", marginBottom: "8px" }}>
+          <div
+            style={{
+              fontSize: "12px",
+              color: theme.colors.textSecondary,
+              marginBottom: "8px",
+            }}
+          >
             Last 5 Actions
           </div>
           {loadingActions ? (
-            <div style={{ fontSize: "12px", color: "#888" }}>Loading...</div>
+            <div style={{ fontSize: "12px", color: theme.colors.textMuted }}>Loading...</div>
           ) : actions.length === 0 ? (
-            <div style={{ fontSize: "12px", color: "#888" }}>No actions yet</div>
+            <div style={{ fontSize: "12px", color: theme.colors.textMuted }}>No actions yet</div>
           ) : (
             <div
               style={{
-                backgroundColor: "#f5f5f5",
+                backgroundColor: theme.colors.surfaceSecondary,
                 padding: "8px",
                 borderRadius: "4px",
                 fontSize: "12px",
+                color: theme.colors.text,
               }}
             >
               {actions.map((action) => (
@@ -200,13 +237,13 @@ export function IncidentPanel({ alert }: IncidentPanelProps) {
                   style={{
                     marginBottom: "8px",
                     paddingBottom: "8px",
-                    borderBottom: "1px solid #ddd",
+                    borderBottom: `1px solid ${theme.colors.border}`,
                   }}
                 >
-                  <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
+                  <div style={{ fontWeight: "bold", marginBottom: "4px", color: theme.colors.text }}>
                     {action.action_type}
                   </div>
-                  <div style={{ color: "#666", fontSize: "11px" }}>
+                  <div style={{ color: theme.colors.textSecondary, fontSize: "11px" }}>
                     Actor: {action.actor}
                     <br />
                     {new Date(action.created_at).toLocaleString()}

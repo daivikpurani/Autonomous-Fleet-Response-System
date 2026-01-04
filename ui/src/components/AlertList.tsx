@@ -3,6 +3,7 @@
 import { useMemo, useEffect } from "react";
 import type { Alert, AlertStatus, Severity } from "../types";
 import { useAlerts } from "../hooks/useAlerts";
+import { useTheme } from "../contexts/ThemeContext";
 
 interface AlertListProps {
   onAlertClick: (alert: Alert) => void;
@@ -10,6 +11,7 @@ interface AlertListProps {
 }
 
 export function AlertList({ onAlertClick, demoMode = false }: AlertListProps) {
+  const { theme } = useTheme();
   const {
     alerts,
     selectedAlert,
@@ -76,19 +78,35 @@ export function AlertList({ onAlertClick, demoMode = false }: AlertListProps) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div style={{ padding: "16px", borderBottom: "1px solid #ddd" }}>
-        <h2 style={{ margin: "0 0 16px 0", fontSize: "18px" }}>Alerts</h2>
+      <div style={{ padding: "16px", borderBottom: `1px solid ${theme.colors.border}` }}>
+        <h2 style={{ margin: "0 0 16px 0", fontSize: "18px", color: theme.colors.text }}>
+          Alerts
+        </h2>
 
         {/* Filters */}
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <div>
-            <label style={{ display: "block", marginBottom: "4px", fontSize: "12px" }}>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "4px",
+                fontSize: "12px",
+                color: theme.colors.textSecondary,
+              }}
+            >
               Status
             </label>
             <select
               value={filters.status || ""}
               onChange={(e) => handleStatusChange(e.target.value as AlertStatus | "")}
-              style={{ width: "100%", padding: "4px" }}
+              style={{
+                width: "100%",
+                padding: "4px",
+                backgroundColor: theme.colors.surface,
+                color: theme.colors.text,
+                border: `1px solid ${theme.colors.border}`,
+                borderRadius: "4px",
+              }}
             >
               <option value="">All</option>
               <option value="OPEN">OPEN</option>
@@ -98,13 +116,27 @@ export function AlertList({ onAlertClick, demoMode = false }: AlertListProps) {
           </div>
 
           <div>
-            <label style={{ display: "block", marginBottom: "4px", fontSize: "12px" }}>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "4px",
+                fontSize: "12px",
+                color: theme.colors.textSecondary,
+              }}
+            >
               Severity
             </label>
             <select
               value={filters.severity || ""}
               onChange={(e) => handleSeverityChange(e.target.value as Severity | "")}
-              style={{ width: "100%", padding: "4px" }}
+              style={{
+                width: "100%",
+                padding: "4px",
+                backgroundColor: theme.colors.surface,
+                color: theme.colors.text,
+                border: `1px solid ${theme.colors.border}`,
+                borderRadius: "4px",
+              }}
             >
               <option value="">All</option>
               <option value="CRITICAL">CRITICAL</option>
@@ -114,7 +146,14 @@ export function AlertList({ onAlertClick, demoMode = false }: AlertListProps) {
           </div>
 
           <div>
-            <label style={{ display: "block", marginBottom: "4px", fontSize: "12px" }}>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "4px",
+                fontSize: "12px",
+                color: theme.colors.textSecondary,
+              }}
+            >
               Vehicle ID
             </label>
             <input
@@ -122,7 +161,14 @@ export function AlertList({ onAlertClick, demoMode = false }: AlertListProps) {
               value={filters.vehicleId || ""}
               onChange={(e) => handleVehicleIdChange(e.target.value)}
               placeholder="Search vehicle..."
-              style={{ width: "100%", padding: "4px" }}
+              style={{
+                width: "100%",
+                padding: "4px",
+                backgroundColor: theme.colors.surface,
+                color: theme.colors.text,
+                border: `1px solid ${theme.colors.border}`,
+                borderRadius: "4px",
+              }}
             />
           </div>
         </div>
@@ -137,15 +183,15 @@ export function AlertList({ onAlertClick, demoMode = false }: AlertListProps) {
         }}
       >
         {loading ? (
-          <div style={{ padding: "16px", textAlign: "center", color: "#888" }}>
+          <div style={{ padding: "16px", textAlign: "center", color: theme.colors.textMuted }}>
             Loading alerts...
           </div>
         ) : error ? (
-          <div style={{ padding: "16px", textAlign: "center", color: "#d32f2f" }}>
+          <div style={{ padding: "16px", textAlign: "center", color: theme.colors.error }}>
             Error: {error}
           </div>
         ) : alerts.length === 0 ? (
-          <div style={{ padding: "16px", textAlign: "center", color: "#888" }}>
+          <div style={{ padding: "16px", textAlign: "center", color: theme.colors.textMuted }}>
             No alerts found
           </div>
         ) : (
@@ -158,20 +204,21 @@ export function AlertList({ onAlertClick, demoMode = false }: AlertListProps) {
                 style={{
                   padding: "12px",
                   marginBottom: "8px",
-                  border: `2px solid ${isSelected ? "#2196f3" : "#ddd"}`,
+                  border: `2px solid ${isSelected ? theme.colors.primary : theme.colors.border}`,
                   borderRadius: "4px",
                   cursor: "pointer",
-                  backgroundColor: isSelected ? "#e3f2fd" : "#fff",
+                  backgroundColor: isSelected ? theme.colors.selected : theme.colors.surface,
                   transition: "all 0.2s",
+                  color: theme.colors.text,
                 }}
                 onMouseEnter={(e) => {
                   if (!isSelected) {
-                    e.currentTarget.style.backgroundColor = "#f5f5f5";
+                    e.currentTarget.style.backgroundColor = theme.colors.hover;
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!isSelected) {
-                    e.currentTarget.style.backgroundColor = "#fff";
+                    e.currentTarget.style.backgroundColor = theme.colors.surface;
                   }
                 }}
               >
@@ -205,7 +252,13 @@ export function AlertList({ onAlertClick, demoMode = false }: AlertListProps) {
                   </div>
                 </div>
 
-                <div style={{ fontSize: "12px", color: "#666", marginBottom: "4px" }}>
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: theme.colors.textSecondary,
+                    marginBottom: "4px",
+                  }}
+                >
                   {alert.rule_name}
                 </div>
 
@@ -215,7 +268,7 @@ export function AlertList({ onAlertClick, demoMode = false }: AlertListProps) {
                     justifyContent: "space-between",
                     alignItems: "center",
                     fontSize: "11px",
-                    color: "#888",
+                    color: theme.colors.textMuted,
                   }}
                 >
                   <span

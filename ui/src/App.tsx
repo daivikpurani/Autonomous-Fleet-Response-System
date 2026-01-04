@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "./services/api";
 import { useWebSocket } from "./hooks/useWebSocket";
+import { useTheme } from "./contexts/ThemeContext";
 import { MapView } from "./components/MapView";
 import { AlertList } from "./components/AlertList";
 import { VehicleDetail } from "./components/VehicleDetail";
@@ -11,6 +12,7 @@ import { ActionButtons } from "./components/ActionButtons";
 import type { Vehicle, Alert, WebSocketMessage } from "./types";
 
 function App() {
+  const { theme, toggleTheme } = useTheme();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
@@ -105,19 +107,27 @@ function App() {
   // This is handled by AlertList component via the alert click handler
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh",
+        backgroundColor: theme.colors.background,
+        color: theme.colors.text,
+      }}
+    >
       {/* Header */}
       <div
         style={{
           padding: "12px 16px",
-          borderBottom: "1px solid #ddd",
+          borderBottom: `1px solid ${theme.colors.border}`,
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          backgroundColor: "#f5f5f5",
+          backgroundColor: theme.colors.surfaceSecondary,
         }}
       >
-        <h1 style={{ margin: 0, fontSize: "20px", fontWeight: "bold" }}>
+        <h1 style={{ margin: 0, fontSize: "20px", fontWeight: "bold", color: theme.colors.text }}>
           FleetOps Operator Dashboard
         </h1>
         <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
@@ -127,7 +137,7 @@ function App() {
               alignItems: "center",
               gap: "4px",
               fontSize: "12px",
-              color: isConnected ? "#4caf50" : "#d32f2f",
+              color: isConnected ? theme.colors.success : theme.colors.error,
             }}
           >
             <span
@@ -135,19 +145,48 @@ function App() {
                 width: "8px",
                 height: "8px",
                 borderRadius: "50%",
-                backgroundColor: isConnected ? "#4caf50" : "#d32f2f",
+                backgroundColor: isConnected ? theme.colors.success : theme.colors.error,
               }}
             />
             {isConnected ? "Connected" : "Disconnected"}
           </div>
-          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px" }}>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              fontSize: "14px",
+              color: theme.colors.text,
+              cursor: "pointer",
+            }}
+          >
             <input
               type="checkbox"
               checked={demoMode}
               onChange={(e) => setDemoMode(e.target.checked)}
+              style={{ cursor: "pointer" }}
             />
             Demo Mode
           </label>
+          <button
+            onClick={toggleTheme}
+            style={{
+              padding: "6px 12px",
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: "4px",
+              backgroundColor: theme.colors.surface,
+              color: theme.colors.text,
+              cursor: "pointer",
+              fontSize: "12px",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+            title={`Switch to ${theme.mode === "light" ? "dark" : "light"} mode`}
+          >
+            {theme.mode === "light" ? "🌙" : "☀️"}
+            {theme.mode === "light" ? "Dark" : "Light"}
+          </button>
         </div>
       </div>
 
@@ -157,10 +196,10 @@ function App() {
         <div
           style={{
             width: "300px",
-            borderRight: "1px solid #ddd",
+            borderRight: `1px solid ${theme.colors.border}`,
             display: "flex",
             flexDirection: "column",
-            backgroundColor: "#fff",
+            backgroundColor: theme.colors.surface,
           }}
         >
           <AlertList onAlertClick={handleAlertClick} demoMode={demoMode} />
@@ -176,7 +215,7 @@ function App() {
                 justifyContent: "center",
                 height: "100%",
                 fontSize: "16px",
-                color: "#888",
+                color: theme.colors.textMuted,
               }}
             >
               Loading...
@@ -190,13 +229,13 @@ function App() {
                 justifyContent: "center",
                 height: "100%",
                 fontSize: "16px",
-                color: "#d32f2f",
+                color: theme.colors.error,
                 gap: "8px",
               }}
             >
               <div>Error: {error}</div>
               {!isConnected && (
-                <div style={{ fontSize: "14px", color: "#ff6b35" }}>
+                <div style={{ fontSize: "14px", color: theme.colors.warning }}>
                   WebSocket disconnected. Reconnecting...
                 </div>
               )}
@@ -209,8 +248,8 @@ function App() {
                 justifyContent: "center",
                 height: "100%",
                 fontSize: "16px",
-                color: "#ff6b35",
-                backgroundColor: "#fff3e0",
+                color: theme.colors.warning,
+                backgroundColor: theme.mode === "dark" ? "#3e2723" : "#fff3e0",
                 padding: "16px",
               }}
             >
@@ -230,18 +269,18 @@ function App() {
         <div
           style={{
             width: "350px",
-            borderLeft: "1px solid #ddd",
+            borderLeft: `1px solid ${theme.colors.border}`,
             display: "flex",
             flexDirection: "column",
-            backgroundColor: "#fff",
+            backgroundColor: theme.colors.surface,
             overflowY: "auto",
           }}
         >
           <VehicleDetail vehicle={selectedVehicle} />
-          <div style={{ borderTop: "1px solid #ddd", marginTop: "16px" }}>
+          <div style={{ borderTop: `1px solid ${theme.colors.border}`, marginTop: "16px" }}>
             <IncidentPanel alert={selectedAlert} />
           </div>
-          <div style={{ borderTop: "1px solid #ddd", marginTop: "16px" }}>
+          <div style={{ borderTop: `1px solid ${theme.colors.border}`, marginTop: "16px" }}>
             <ActionButtons
               alert={selectedAlert}
               vehicle={selectedVehicle}
