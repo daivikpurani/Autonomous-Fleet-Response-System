@@ -12,9 +12,15 @@ kafka-python>=2.0.0,<3.0.0
 # Phase 3: FastAPI for replay service
 fastapi>=0.100.0,<1.0.0
 uvicorn>=0.23.0,<1.0.0
+websockets>=12.0,<13.0.0
 
 # Phase 5: Database dependencies for operator service
 sqlalchemy>=2.0.0,<3.0.0
 alembic>=1.12.0,<2.0.0
 psycopg2-binary>=2.9.11,<3.0.0
 
+# Testing dependencies
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+httpx>=0.24.0
+pytest-timeout>=2.2.0
