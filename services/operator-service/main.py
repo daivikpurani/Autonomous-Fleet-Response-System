@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from .config import OperatorConfig
 from .db.models import Base, Alert, AlertStatus
@@ -232,7 +233,6 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down operator service")
-    global _kafka_task, _telemetry_task
     if _kafka_task:
         _kafka_task.cancel()
         try:
@@ -247,7 +247,6 @@ async def lifespan(app: FastAPI):
             pass
     
     # Shutdown thread pool executor
-    global _executor
     if _executor:
         _executor.shutdown(wait=True)
         _executor = None
@@ -259,6 +258,44 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Register WebSocket endpoint before routers
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for real-time updates."""
+    try:
+        await websocket_manager.connect(websocket)
+        logger.info(f"WebSocket connection established from {websocket.client}")
+        
+        # Keep connection alive by waiting for messages or disconnect
+        # The connection stays open as long as this loop runs
+        while True:
+            try:
+                # Wait for messages from client (or disconnect)
+                # This will raise WebSocketDisconnect when client closes
+                data = await websocket.receive_text()
+                logger.debug(f"Received WebSocket message: {data}")
+            except WebSocketDisconnect:
+                # Normal disconnect
+                logger.info("WebSocket client disconnected")
+                break
+    except WebSocketDisconnect:
+        # Client disconnected during connection setup
+        logger.info("WebSocket disconnected during setup")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}", exc_info=True)
+    finally:
+        websocket_manager.disconnect(websocket)
+        logger.info("WebSocket connection cleanup complete")
+
 # Include routers
 app.include_router(alerts.router)
 app.include_router(vehicles.router)
@@ -269,22 +306,6 @@ app.include_router(actions.router)
 def health_check() -> dict:
     """Health check endpoint."""
     return {"status": "healthy"}
-
-
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for real-time updates."""
-    await websocket_manager.connect(websocket)
-    try:
-        while True:
-            # Keep connection alive by receiving messages
-            data = await websocket.receive_text()
-            logger.debug(f"Received WebSocket message: {data}")
-    except WebSocketDisconnect:
-        websocket_manager.disconnect(websocket)
-    except Exception as e:
-        logger.error(f"WebSocket error: {e}", exc_info=True)
-        websocket_manager.disconnect(websocket)
 
 
 if __name__ == "__main__":

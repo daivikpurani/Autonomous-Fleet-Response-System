@@ -21,10 +21,17 @@ class WebSocketManager:
 
         Args:
             websocket: WebSocket connection
+            
+        Raises:
+            Exception: If connection cannot be accepted
         """
-        await websocket.accept()
-        self.active_connections.add(websocket)
-        logger.info(f"WebSocket connected. Total connections: {len(self.active_connections)}")
+        try:
+            await websocket.accept()
+            self.active_connections.add(websocket)
+            logger.info(f"WebSocket connected. Total connections: {len(self.active_connections)}")
+        except Exception as e:
+            logger.error(f"Failed to accept WebSocket connection: {e}", exc_info=True)
+            raise
 
     def disconnect(self, websocket: WebSocket) -> None:
         """Remove a WebSocket connection.

@@ -45,6 +45,11 @@ services:
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:${KAFKA_PORT:-9092}
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      # Note: If you see "InconsistentClusterIdException", Kafka's stored cluster ID
+      # doesn't match Zookeeper's cluster ID. This happens when Zookeeper is reset
+      # but Kafka's data volume persists. Run 'make kafka-reset' to fix.
+      KAFKA_LOG_RETENTION_HOURS: 168
     ports:
       - "${KAFKA_PORT:-9092}:9092"
     volumes:

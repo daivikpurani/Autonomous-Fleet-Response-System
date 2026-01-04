@@ -18,6 +18,38 @@ This system models an autonomous fleet response system that replays telemetry fr
 - ML-based perception or prediction models
 - Real-time sensor data ingestion
 
+## Quick Start - Running All Services
+
+To start the entire system (infrastructure, backend services, and frontend):
+
+```bash
+# Start all services without auto-reload
+./scripts/start_all.sh
+
+# Or using Makefile
+make start
+
+# Start all services with auto-reload (recommended for development)
+./scripts/start_all.sh --reload
+
+# Or using Makefile
+make start-reload
+```
+
+**Options:**
+- `--reload` / `-r`: Enable auto-reload for backend services (uses uvicorn --reload)
+- `--infra-only`: Start only infrastructure (Postgres, Kafka)
+- `--backend-only`: Start only backend services
+- `--frontend-only`: Start only frontend
+- `--help` / `-h`: Show help message
+
+**Services started:**
+- Infrastructure: Postgres (port 5432), Kafka (port 9092)
+- Backend: replay-service (port 8000), anomaly-service (Kafka consumer), operator-service (port 8003)
+- Frontend: Vite dev server (port 5173) with hot reload
+
+Press `Ctrl+C` to stop all services.
+
 ## How to Run Phase 0 Checks
 
 Phase 0 sets up the local development environment and validates the L5Kit dataset.
@@ -47,4 +79,32 @@ Phase 0 sets up the local development environment and validates the L5Kit datase
    ```
 
 For detailed instructions, see [docs/PHASE0.md](docs/PHASE0.md).
+
+## Troubleshooting
+
+### Kafka Cluster ID Mismatch
+
+If Kafka fails to start with `InconsistentClusterIdException`, this means Kafka's stored cluster ID doesn't match Zookeeper's. This is automatically detected and fixed by the startup scripts.
+
+**Quick fix:**
+```bash
+make kafka-reset
+```
+
+**Check for issues:**
+```bash
+make kafka-check
+```
+
+For more troubleshooting information, see [docs/troubleshooting.md](docs/troubleshooting.md).
+
+## Infrastructure Commands
+
+- `make up` - Start infrastructure (Postgres, Kafka, Zookeeper)
+- `make down` - Stop infrastructure
+- `make health` - Check container health status
+- `make kafka-check` - Check for Kafka cluster ID mismatch
+- `make kafka-reset` - Reset Kafka and Zookeeper volumes
+- `make reset` - Destroy all volumes and restart infrastructure
+- `make logs` - Tail logs from all containers
 

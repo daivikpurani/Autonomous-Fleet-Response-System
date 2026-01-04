@@ -10,7 +10,7 @@ class DatabaseConfig:
 
     database_url: str = os.getenv(
         "DATABASE_URL",
-        "postgresql://postgres:postgres@localhost:5432/fleetops",
+        "postgresql://postgres:postgres@localhost:5434/fleetops",
     )
 
 
