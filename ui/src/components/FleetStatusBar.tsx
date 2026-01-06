@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useTheme } from "../contexts/ThemeContext";
-import type { Vehicle, Alert, Severity } from "../types";
+import type { Vehicle, Alert } from "../types";
 
 interface FleetStatusBarProps {
   vehicles: Vehicle[];

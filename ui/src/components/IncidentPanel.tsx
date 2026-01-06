@@ -21,6 +21,7 @@ export function IncidentPanel({ alert }: IncidentPanelProps) {
     }
 
     async function fetchActions() {
+      if (!alert) return;
       try {
         setLoadingActions(true);
         const vehicleActions = await api.getActions(alert.vehicle_id);

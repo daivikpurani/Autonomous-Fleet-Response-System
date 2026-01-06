@@ -24,7 +24,7 @@
       "critical": 0.013020970106127048
     },
     "dropout_proxy": {
-      "agent_count_drop_warning": 10
+      "agent_count_drop_warning": 25
     }
   }
 }

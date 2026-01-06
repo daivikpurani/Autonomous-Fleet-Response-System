@@ -39,10 +39,10 @@ def check_kafka_connection(bootstrap_servers: str, timeout: float = 2.0) -> bool
 
 
 def check_kafka_ready(bootstrap_servers: str, timeout: float = 5.0) -> bool:
-    """Check if Kafka is ready by attempting to list topics.
+    """Check if Kafka is ready by verifying TCP connectivity.
     
-    This is more reliable than just TCP connectivity as it verifies Kafka
-    can actually handle API requests.
+    For demo purposes, TCP connectivity is sufficient. The full API check
+    with list_topics() can be slow or unreliable with some Kafka versions.
     
     Args:
         bootstrap_servers: Kafka bootstrap servers
@@ -51,40 +51,8 @@ def check_kafka_ready(bootstrap_servers: str, timeout: float = 5.0) -> bool:
     Returns:
         True if Kafka is ready, False otherwise
     """
-    try:
-        try:
-            from kafka import KafkaAdminClient
-        except ImportError:
-            # KafkaAdminClient might not be available in older versions
-            # Fall back to TCP check only
-            logger.debug("KafkaAdminClient not available, using TCP check only")
-            return check_kafka_connection(bootstrap_servers, timeout)
-        
-        # Try to create an admin client and list topics
-        admin_client = None
-        try:
-            admin_client = KafkaAdminClient(
-                bootstrap_servers=bootstrap_servers,
-                request_timeout_ms=int(timeout * 1000),
-                api_version=(0, 10, 1),
-            )
-            
-            # Try to list topics - this will fail if Kafka isn't ready
-            admin_client.list_topics(timeout_ms=int(timeout * 1000))
-            if admin_client:
-                admin_client.close()
-            return True
-        except Exception as e:
-            if admin_client:
-                try:
-                    admin_client.close()
-                except Exception:
-                    pass
-            logger.debug(f"Kafka topic listing failed: {e}")
-            return False
-    except Exception as e:
-        logger.debug(f"Kafka readiness check failed: {e}")
-        return False
+    # Simple TCP check is faster and sufficient for demo
+    return check_kafka_connection(bootstrap_servers, timeout)
 
 
 def wait_for_kafka(

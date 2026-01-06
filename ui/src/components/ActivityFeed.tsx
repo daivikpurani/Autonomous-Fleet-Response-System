@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useTheme } from "../contexts/ThemeContext";
-import type { Alert, Action, Vehicle } from "../types";
+import type { Alert } from "../types";
 
 interface ActivityItem {
   id: string;

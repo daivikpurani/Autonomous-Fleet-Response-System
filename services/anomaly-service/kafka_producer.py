@@ -45,13 +45,14 @@ class KafkaProducer:
         if self._initialized and self._producer is not None:
             return True
 
-        # Wait for Kafka to be ready on first attempt
+        # Wait for Kafka to be ready on first attempt (use TCP check only for faster startup)
         if self._retry_count == 0:
             logger.info("Waiting for Kafka to be ready...")
             if not wait_for_kafka(
                 self.config.kafka_producer.bootstrap_servers,
-                max_wait=30.0,  # Wait up to 30s for initial connection
-                check_interval=2.0
+                max_wait=10.0,  # Wait up to 10s for initial connection
+                check_interval=1.0,
+                use_consumer_check=False  # Use TCP check only for producer
             ):
                 logger.warning("Kafka not ready, will retry with backoff")
 

@@ -63,3 +63,45 @@ export interface WebSocketMessage {
   type: "alert_created" | "alert_updated" | "vehicle_updated" | "operator_action_created";
   data: Alert | Vehicle | Action;
 }
+
+// Metrics Dashboard Types
+export interface MetricSnapshot {
+  timestamp: Date;
+  alertsPerMinute: number;
+  avgResponseTimeMs: number;
+  fleetHealthPercent: number;
+  criticalCount: number;
+  warningCount: number;
+  infoCount: number;
+  totalAlerts: number;
+  normalVehicles: number;
+  alertingVehicles: number;
+  interventionVehicles: number;
+  totalVehicles: number;
+}
+
+export interface HeatMapPoint {
+  lat: number;
+  lng: number;
+  weight: number;
+  severity: Severity;
+  alertIds: string[];
+}
+
+export interface ChartDataPoint {
+  timestamp: number;
+  label: string;
+  value: number;
+}
+
+export interface SeverityDistribution {
+  name: string;
+  value: number;
+  color: string;
+}
+
+export interface VehicleStateDistribution {
+  name: string;
+  value: number;
+  color: string;
+}

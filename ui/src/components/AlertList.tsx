@@ -1,14 +1,35 @@
-// Alert list component with incident numbers and professional styling
+// Alert list component with vehicle grouping for clean demo presentations
 
-import { useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import type { Alert, AlertStatus, Severity } from "../types";
-import { useAlerts } from "../hooks/useAlerts";
 import { useTheme } from "../contexts/ThemeContext";
 
 interface AlertListProps {
+  alerts: Alert[];
   onAlertClick: (alert: Alert) => void;
   demoMode?: boolean;
 }
+
+// Interface for grouped vehicle alerts
+interface VehicleAlertGroup {
+  vehicleId: string;
+  vehicleDisplayId: string;
+  vehicleType: string;
+  highestSeverity: Severity;
+  alertCount: number;
+  openCount: number;
+  uniqueRuleNames: string[];
+  latestAlert: Alert;
+  alerts: Alert[];
+  lastUpdated: string;
+}
+
+// Severity priority for comparison (higher = more severe)
+const SEVERITY_PRIORITY: Record<Severity, number> = {
+  CRITICAL: 3,
+  WARNING: 2,
+  INFO: 1,
+};
 
 // Helper to get relative time string
 function getRelativeTime(dateString: string): string {
@@ -25,17 +46,25 @@ function getRelativeTime(dateString: string): string {
   return date.toLocaleDateString();
 }
 
-export function AlertList({ onAlertClick, demoMode = false }: AlertListProps) {
+// Format rule name for display
+function formatRuleName(ruleName: string): string {
+  return ruleName
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, c => c.toUpperCase())
+    .replace("Sudden Deceleration", "Hard Brake")
+    .replace("Perception Instability", "Perception")
+    .replace("Dropout Proxy", "Sensor Gap");
+}
+
+export function AlertList({ alerts: allAlerts, onAlertClick, demoMode = false }: AlertListProps) {
   const { theme } = useTheme();
-  const {
-    alerts,
-    selectedAlert,
-    filters,
-    updateFilters,
-    selectAlert,
-    loading,
-    error,
-  } = useAlerts();
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [expandedVehicleId, setExpandedVehicleId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<{
+    status?: AlertStatus;
+    severity?: Severity;
+    vehicleId?: string;
+  }>({});
 
   // Store the latest onAlertClick callback in a ref
   const onAlertClickRef = useRef(onAlertClick);
@@ -43,31 +72,123 @@ export function AlertList({ onAlertClick, demoMode = false }: AlertListProps) {
     onAlertClickRef.current = onAlertClick;
   }, [onAlertClick]);
 
-  // Demo mode: auto-select first CRITICAL alert
-  useEffect(() => {
-    if (demoMode && alerts.length > 0 && !selectedAlert) {
-      const criticalAlert = alerts.find((a) => a.severity === "CRITICAL");
-      if (criticalAlert) {
-        selectAlert(criticalAlert.id);
-        onAlertClickRef.current(criticalAlert);
+  // Filter alerts first
+  const filteredAlerts = useMemo(() => {
+    let result = allAlerts;
+
+    if (filters.status) {
+      result = result.filter((alert) => alert.status === filters.status);
+    }
+
+    if (filters.severity) {
+      result = result.filter((alert) => alert.severity === filters.severity);
+    }
+
+    if (filters.vehicleId) {
+      const searchTerm = filters.vehicleId.toLowerCase();
+      result = result.filter((alert) =>
+        alert.vehicle_id.toLowerCase().includes(searchTerm) ||
+        (alert.vehicle_display_id && alert.vehicle_display_id.toLowerCase().includes(searchTerm))
+      );
+    }
+
+    return result;
+  }, [allAlerts, filters]);
+
+  // Group alerts by vehicle
+  const vehicleGroups = useMemo(() => {
+    const groupMap = new Map<string, VehicleAlertGroup>();
+
+    for (const alert of filteredAlerts) {
+      const vehicleId = alert.vehicle_id;
+      
+      if (!groupMap.has(vehicleId)) {
+        // Determine vehicle type from display ID
+        const displayId = alert.vehicle_display_id || vehicleId;
+        const isAV = displayId.startsWith("AV-") || vehicleId.includes("ego");
+        
+        groupMap.set(vehicleId, {
+          vehicleId,
+          vehicleDisplayId: displayId,
+          vehicleType: isAV ? "Autonomous Vehicle" : "Tracked Vehicle",
+          highestSeverity: alert.severity,
+          alertCount: 0,
+          openCount: 0,
+          uniqueRuleNames: [],
+          latestAlert: alert,
+          alerts: [],
+          lastUpdated: alert.last_seen_event_time,
+        });
+      }
+
+      const group = groupMap.get(vehicleId)!;
+      group.alerts.push(alert);
+      group.alertCount++;
+      
+      if (alert.status === "OPEN") {
+        group.openCount++;
+      }
+
+      // Update highest severity
+      if (SEVERITY_PRIORITY[alert.severity] > SEVERITY_PRIORITY[group.highestSeverity]) {
+        group.highestSeverity = alert.severity;
+      }
+
+      // Track unique rule names
+      const ruleName = alert.rule_display_name || alert.rule_name;
+      if (!group.uniqueRuleNames.includes(ruleName)) {
+        group.uniqueRuleNames.push(ruleName);
+      }
+
+      // Update latest alert if newer
+      if (new Date(alert.last_seen_event_time) > new Date(group.lastUpdated)) {
+        group.lastUpdated = alert.last_seen_event_time;
+        group.latestAlert = alert;
       }
     }
-  }, [demoMode, alerts, selectedAlert, selectAlert]);
+
+    // Convert to array and sort by severity (highest first), then by last updated
+    return Array.from(groupMap.values()).sort((a, b) => {
+      const severityDiff = SEVERITY_PRIORITY[b.highestSeverity] - SEVERITY_PRIORITY[a.highestSeverity];
+      if (severityDiff !== 0) return severityDiff;
+      return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
+    });
+  }, [filteredAlerts]);
+
+  // Demo mode: auto-select first vehicle with CRITICAL alert
+  useEffect(() => {
+    if (demoMode && vehicleGroups.length > 0 && !selectedVehicleId) {
+      const criticalGroup = vehicleGroups.find((g) => g.highestSeverity === "CRITICAL");
+      const targetGroup = criticalGroup || vehicleGroups[0];
+      setSelectedVehicleId(targetGroup.vehicleId);
+      onAlertClickRef.current(targetGroup.latestAlert);
+    }
+  }, [demoMode, vehicleGroups, selectedVehicleId]);
 
   const handleStatusChange = (status: AlertStatus | "") => {
-    updateFilters({ status: status || undefined });
+    setFilters((prev) => ({ ...prev, status: status || undefined }));
   };
 
   const handleSeverityChange = (severity: Severity | "") => {
-    updateFilters({ severity: severity || undefined });
+    setFilters((prev) => ({ ...prev, severity: severity || undefined }));
   };
 
   const handleVehicleIdChange = (vehicleId: string) => {
-    updateFilters({ vehicleId: vehicleId || undefined });
+    setFilters((prev) => ({ ...prev, vehicleId: vehicleId || undefined }));
   };
 
-  const handleAlertClick = (alert: Alert) => {
-    selectAlert(alert.id);
+  const handleGroupClick = (group: VehicleAlertGroup) => {
+    setSelectedVehicleId(group.vehicleId);
+    onAlertClick(group.latestAlert);
+    
+    // Toggle expansion on second click
+    if (selectedVehicleId === group.vehicleId) {
+      setExpandedVehicleId(expandedVehicleId === group.vehicleId ? null : group.vehicleId);
+    }
+  };
+
+  const handleAlertClick = (alert: Alert, e: React.MouseEvent) => {
+    e.stopPropagation();
     onAlertClick(alert);
   };
 
@@ -96,29 +217,17 @@ export function AlertList({ onAlertClick, demoMode = false }: AlertListProps) {
     }
   };
 
-  const getStatusConfig = (status: AlertStatus) => {
-    switch (status) {
-      case "OPEN":
-        return { color: theme.colors.error, label: "OPEN" };
-      case "ACKNOWLEDGED":
-        return { color: theme.colors.warning, label: "ACK" };
-      case "RESOLVED":
-        return { color: theme.colors.success, label: "RESOLVED" };
-      default:
-        return { color: theme.colors.textMuted, label: "?" };
-    }
-  };
-
-  // Count alerts by severity
+  // Count total alerts by severity
   const alertCounts = useMemo(() => {
-    const openAlerts = alerts.filter((a) => a.status === "OPEN");
+    const openAlerts = filteredAlerts.filter((a) => a.status === "OPEN");
     return {
       critical: openAlerts.filter((a) => a.severity === "CRITICAL").length,
       warning: openAlerts.filter((a) => a.severity === "WARNING").length,
       info: openAlerts.filter((a) => a.severity === "INFO").length,
       total: openAlerts.length,
+      vehicleCount: vehicleGroups.length,
     };
-  }, [alerts]);
+  }, [filteredAlerts, vehicleGroups]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -132,20 +241,20 @@ export function AlertList({ onAlertClick, demoMode = false }: AlertListProps) {
             color: theme.colors.text,
             letterSpacing: "0.5px",
           }}>
-            ACTIVE INCIDENTS
+            VEHICLES WITH ALERTS
           </h2>
           <span
             style={{
               fontSize: "12px",
               fontFamily: theme.fonts.mono,
               fontWeight: 600,
-              color: alertCounts.total > 0 ? theme.colors.warning : theme.colors.textMuted,
+              color: alertCounts.vehicleCount > 0 ? theme.colors.warning : theme.colors.textMuted,
               padding: "2px 8px",
-              backgroundColor: alertCounts.total > 0 ? theme.colors.warningMuted : theme.colors.surfaceSecondary,
+              backgroundColor: alertCounts.vehicleCount > 0 ? theme.colors.warningMuted : theme.colors.surfaceSecondary,
               borderRadius: "4px",
             }}
           >
-            {alertCounts.total}
+            {alertCounts.vehicleCount}
           </span>
         </div>
 
@@ -262,7 +371,7 @@ export function AlertList({ onAlertClick, demoMode = false }: AlertListProps) {
         </div>
       </div>
 
-      {/* Alert List */}
+      {/* Vehicle Alert Groups */}
       <div
         style={{
           flex: 1,
@@ -270,150 +379,254 @@ export function AlertList({ onAlertClick, demoMode = false }: AlertListProps) {
           padding: "8px",
         }}
       >
-        {loading ? (
-          <div style={{ padding: "20px", textAlign: "center", color: theme.colors.textMuted }}>
-            Loading incidents...
-          </div>
-        ) : error ? (
-          <div style={{ padding: "20px", textAlign: "center", color: theme.colors.error }}>
-            Error: {error}
-          </div>
-        ) : alerts.length === 0 ? (
+        {vehicleGroups.length === 0 ? (
           <div style={{ 
             padding: "40px 20px", 
             textAlign: "center", 
             color: theme.colors.textMuted,
           }}>
             <div style={{ fontSize: "24px", marginBottom: "8px" }}>✓</div>
-            <div style={{ fontSize: "13px" }}>No active incidents</div>
+            <div style={{ fontSize: "13px" }}>All vehicles nominal</div>
           </div>
         ) : (
-          alerts.map((alert, index) => {
-            const isSelected = selectedAlert?.id === alert.id;
-            const severityConfig = getSeverityConfig(alert.severity);
-            const statusConfig = getStatusConfig(alert.status);
-            const isNew = index === 0 && Date.now() - new Date(alert.created_at).getTime() < 5000;
+          vehicleGroups.map((group, index) => {
+            const isSelected = selectedVehicleId === group.vehicleId;
+            const isExpanded = expandedVehicleId === group.vehicleId;
+            const severityConfig = getSeverityConfig(group.highestSeverity);
+            const isNew = index === 0 && Date.now() - new Date(group.lastUpdated).getTime() < 5000;
+            const isAV = group.vehicleType === "Autonomous Vehicle";
 
             return (
-              <div
-                key={alert.id}
-                onClick={() => handleAlertClick(alert)}
-                style={{
-                  padding: "12px",
-                  marginBottom: "8px",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  backgroundColor: isSelected 
-                    ? theme.colors.selected 
-                    : theme.colors.surfaceSecondary,
-                  border: `2px solid ${isSelected 
-                    ? theme.colors.primary 
-                    : alert.severity === "CRITICAL" && alert.status === "OPEN"
-                      ? theme.colors.critical
-                      : theme.colors.borderSubtle}`,
-                  transition: "all 0.2s",
-                  animation: isNew ? "slideIn 0.3s ease-out" : undefined,
-                }}
-                onMouseEnter={(e) => {
-                  if (!isSelected) {
-                    e.currentTarget.style.backgroundColor = theme.colors.hover;
-                    e.currentTarget.style.borderColor = theme.colors.border;
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isSelected) {
-                    e.currentTarget.style.backgroundColor = theme.colors.surfaceSecondary;
-                    e.currentTarget.style.borderColor = 
-                      alert.severity === "CRITICAL" && alert.status === "OPEN"
+              <div key={group.vehicleId}>
+                {/* Vehicle Group Card */}
+                <div
+                  onClick={() => handleGroupClick(group)}
+                  style={{
+                    padding: "12px",
+                    marginBottom: isExpanded ? "0" : "8px",
+                    borderRadius: isExpanded ? "8px 8px 0 0" : "8px",
+                    cursor: "pointer",
+                    backgroundColor: isSelected 
+                      ? theme.colors.selected 
+                      : theme.colors.surfaceSecondary,
+                    border: `2px solid ${isSelected 
+                      ? theme.colors.primary 
+                      : group.highestSeverity === "CRITICAL" && group.openCount > 0
                         ? theme.colors.critical
-                        : theme.colors.borderSubtle;
-                  }
-                }}
-              >
-                {/* Top Row: Incident ID & Severity */}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "8px",
+                        : theme.colors.borderSubtle}`,
+                    borderBottom: isExpanded ? "none" : undefined,
+                    transition: "all 0.2s",
+                    animation: isNew ? "slideIn 0.3s ease-out" : undefined,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.backgroundColor = theme.colors.hover;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.backgroundColor = theme.colors.surfaceSecondary;
+                    }
                   }}
                 >
+                  {/* Top Row: Vehicle ID & Severity */}
                   <div
                     style={{
-                      fontFamily: theme.fonts.mono,
-                      fontSize: "13px",
-                      fontWeight: 700,
-                      color: theme.colors.text,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "6px",
                     }}
                   >
-                    {alert.incident_id || `INC-${alert.id.slice(0, 5).toUpperCase()}`}
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <div
+                        style={{
+                          fontFamily: theme.fonts.mono,
+                          fontSize: "14px",
+                          fontWeight: 700,
+                          color: theme.colors.text,
+                        }}
+                      >
+                        {group.vehicleDisplayId}
+                      </div>
+                      {isAV && (
+                        <span
+                          style={{
+                            fontSize: "9px",
+                            fontWeight: 700,
+                            padding: "2px 5px",
+                            borderRadius: "3px",
+                            backgroundColor: theme.colors.primaryMuted,
+                            color: theme.colors.primary,
+                            letterSpacing: "0.5px",
+                          }}
+                        >
+                          AV
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        padding: "3px 10px",
+                        borderRadius: "4px",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        backgroundColor: severityConfig.bg,
+                        color: severityConfig.color,
+                        letterSpacing: "0.5px",
+                      }}
+                    >
+                      {severityConfig.label}
+                    </div>
                   </div>
+
+                  {/* Rule Types Summary */}
                   <div
                     style={{
-                      padding: "2px 8px",
-                      borderRadius: "4px",
-                      fontSize: "10px",
-                      fontWeight: 700,
-                      backgroundColor: severityConfig.bg,
-                      color: severityConfig.color,
-                      letterSpacing: "0.5px",
+                      fontSize: "11px",
+                      color: theme.colors.textSecondary,
+                      marginBottom: "8px",
+                      lineHeight: "1.4",
                     }}
                   >
-                    {severityConfig.label}
+                    {group.uniqueRuleNames.slice(0, 3).map(formatRuleName).join(" • ")}
+                    {group.uniqueRuleNames.length > 3 && ` +${group.uniqueRuleNames.length - 3} more`}
+                  </div>
+
+                  {/* Bottom Row: Incident Count & Time */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span
+                        style={{
+                          padding: "3px 8px",
+                          borderRadius: "4px",
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          backgroundColor: group.openCount > 0 
+                            ? theme.colors.errorMuted 
+                            : theme.colors.successMuted,
+                          color: group.openCount > 0 
+                            ? theme.colors.error 
+                            : theme.colors.success,
+                        }}
+                      >
+                        {group.openCount > 0 
+                          ? `${group.openCount} open` 
+                          : "resolved"}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "10px",
+                          fontWeight: 500,
+                          color: theme.colors.textMuted,
+                          fontFamily: theme.fonts.mono,
+                        }}
+                      >
+                        {group.alertCount} total
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{ 
+                        color: theme.colors.textMuted, 
+                        fontFamily: theme.fonts.mono,
+                        fontSize: "10px",
+                      }}>
+                        {getRelativeTime(group.lastUpdated)}
+                      </span>
+                      <span style={{ 
+                        fontSize: "10px", 
+                        color: theme.colors.textMuted,
+                        transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                        transition: "transform 0.2s",
+                      }}>
+                        ▼
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Vehicle ID */}
-                <div
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    color: theme.colors.text,
-                    marginBottom: "4px",
-                  }}
-                >
-                  {alert.vehicle_display_id || alert.vehicle_id}
-                </div>
-
-                {/* Rule Name */}
-                <div
-                  style={{
-                    fontSize: "11px",
-                    color: theme.colors.textSecondary,
-                    marginBottom: "8px",
-                  }}
-                >
-                  {alert.rule_display_name || alert.rule_name.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
-                </div>
-
-                {/* Bottom Row: Status & Time */}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    fontSize: "10px",
-                  }}
-                >
-                  <span
+                {/* Expanded Alerts List */}
+                {isExpanded && (
+                  <div
                     style={{
-                      padding: "2px 6px",
-                      borderRadius: "3px",
-                      fontWeight: 600,
-                      backgroundColor: 
-                        alert.status === "OPEN" ? theme.colors.errorMuted :
-                        alert.status === "ACKNOWLEDGED" ? theme.colors.warningMuted :
-                        theme.colors.successMuted,
-                      color: statusConfig.color,
+                      backgroundColor: theme.colors.surfaceSecondary,
+                      border: `2px solid ${isSelected ? theme.colors.primary : theme.colors.borderSubtle}`,
+                      borderTop: "none",
+                      borderRadius: "0 0 8px 8px",
+                      marginBottom: "8px",
+                      padding: "8px",
+                      maxHeight: "200px",
+                      overflowY: "auto",
                     }}
                   >
-                    {statusConfig.label}
-                  </span>
-                  <span style={{ color: theme.colors.textMuted, fontFamily: theme.fonts.mono }}>
-                    {getRelativeTime(alert.last_seen_event_time)}
-                  </span>
-                </div>
+                    {group.alerts
+                      .sort((a, b) => SEVERITY_PRIORITY[b.severity] - SEVERITY_PRIORITY[a.severity])
+                      .map((alert) => {
+                        const alertSeverity = getSeverityConfig(alert.severity);
+                        return (
+                          <div
+                            key={alert.id}
+                            onClick={(e) => handleAlertClick(alert, e)}
+                            style={{
+                              padding: "8px 10px",
+                              marginBottom: "4px",
+                              borderRadius: "4px",
+                              backgroundColor: theme.colors.surface,
+                              border: `1px solid ${theme.colors.borderSubtle}`,
+                              cursor: "pointer",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              transition: "background-color 0.15s",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = theme.colors.hover;
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = theme.colors.surface;
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <span
+                                style={{
+                                  width: "6px",
+                                  height: "6px",
+                                  borderRadius: "50%",
+                                  backgroundColor: alertSeverity.color,
+                                }}
+                              />
+                              <span style={{ 
+                                fontSize: "11px", 
+                                fontFamily: theme.fonts.mono,
+                                color: theme.colors.text,
+                              }}>
+                                {alert.incident_id || `INC-${alert.id.slice(0, 5).toUpperCase()}`}
+                              </span>
+                              <span style={{ 
+                                fontSize: "10px", 
+                                color: theme.colors.textSecondary,
+                              }}>
+                                {formatRuleName(alert.rule_display_name || alert.rule_name)}
+                              </span>
+                            </div>
+                            <span style={{ 
+                              fontSize: "9px", 
+                              color: theme.colors.textMuted,
+                              fontFamily: theme.fonts.mono,
+                            }}>
+                              {getRelativeTime(alert.last_seen_event_time)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
               </div>
             );
           })

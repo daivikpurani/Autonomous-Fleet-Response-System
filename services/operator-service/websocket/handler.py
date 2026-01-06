@@ -78,7 +78,7 @@ class WebSocketManager:
         for connection in disconnected:
             self.disconnect(connection)
 
-        logger.debug(f"Broadcasted {event_type} to {len(self.active_connections)} connections")
+        logger.info(f"Broadcasted {event_type} to {len(self.active_connections)} connections")
 
 
 # Global WebSocket manager instance
