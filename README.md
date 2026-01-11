@@ -1,4 +1,79 @@
-# AV Fleet Intervention and Recovery System
+# Fleet Intervention System for Autonomous Vehicles
+
+## System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                    Fleet Intervention System Architecture                           │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+
+                    ┌─────────────────────┐
+                    │  L5Kit Dataset      │
+                    │  (sample.zarr)      │
+                    │  Data Source        │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │  Replay Service      │
+                    │  (port 8000)         │
+                    │  Reads dataset and   │
+                    │  publishes to Kafka  │
+                    └──────────┬───────────┘
+                               │ publishes
+                               ▼
+        ┌──────────────────────────────────────────────────────────────┐
+        │                      Kafka Topics                             │
+        │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐   │
+        │  │raw_telemetry │    │  anomalies   │    │operator_     │   │
+        │  │              │    │              │    │actions       │   │
+        │  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘   │
+        └─────────┼────────────────────┼────────────────────┼───────────┘
+                  │                    │                    │
+                  │ consumes           │                    │
+                  ▼                    │                    │
+        ┌─────────────────────────────┐│                    │
+        │  Anomaly Service            ││                    │
+        │  Consumes telemetry,        ││                    │
+        │  detects anomalies          ││                    │
+        └──────────┬──────────────────┘│                    │
+                   │ publishes         │                    │
+                   │ (to anomalies)    │                    │
+                   │                   │                    │
+                   │                   │ consumes           │
+                   │                   ▼                    │
+                   │        ┌──────────────────────────────┐│
+                   │        │  Operator Service            ││
+                   │        │  (port 8003)                 ││
+                   │        │  Aggregates anomalies,       ││
+                   │        │  manages alerts & vehicle    ││
+                   │        │  state, provides REST +      ││
+                   │        │  WebSocket APIs              ││
+                   │        └──────────┬───────────────────┘│
+                   │                   │                    │
+                   │                   │ stores             │
+                   │                   ▼                    │
+                   │        ┌──────────────────────────────┐│
+                   │        │  PostgreSQL (port 5432)       ││
+                   │        │  Stores alerts, vehicle data ││
+                   │        └───────────────────────────────┘│
+                   │                                         │
+                   │        ┌──────────────────────────────┐│
+                   │        │  Frontend UI                 ││
+                   │        │  (React, Vite, port 5173)    ││
+                   │        │  Displays vehicle state      ││
+                   │        │  and alerts                  ││
+                   │        └──────────┬───────────────────┘│
+                   │                   ▲                    │
+                   │                   │                    │
+                   │        ┌──────────┴───────────────────┐│
+                   │        │  WebSocket (real-time)       ││
+                   │        │  REST API (queries/actions)  ││
+                   │        └───────────────────────────────┘│
+                   │                                         │
+                   └─────────────────────────────────────────┘
+                   (also consumes raw_telemetry for vehicle state)
+```
 
 ## Project Overview
 

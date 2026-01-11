@@ -204,7 +204,7 @@ export function ActionButtons({
             fontWeight: 500,
           }}
         >
-          ⚠️ {error}
+          {error}
         </div>
       )}
 

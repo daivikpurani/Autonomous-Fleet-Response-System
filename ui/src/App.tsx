@@ -83,7 +83,6 @@ function App() {
                 gap: "6px",
               }}
             >
-              <span style={{ fontSize: "14px" }}>📡</span>
               Operations
             </NavLink>
             <NavLink
@@ -103,7 +102,6 @@ function App() {
                 gap: "6px",
               }}
             >
-              <span style={{ fontSize: "14px" }}>📊</span>
               Analytics
             </NavLink>
           </nav>
@@ -151,7 +149,6 @@ function App() {
             }}
             title={`Switch to ${theme.mode === "light" ? "dark" : "light"} mode`}
           >
-            {theme.mode === "light" ? "🌙" : "☀️"}
             {theme.mode === "light" ? "Dark" : "Light"}
           </button>
         </div>

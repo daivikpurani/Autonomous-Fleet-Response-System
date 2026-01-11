@@ -193,7 +193,6 @@ export function MetricsDashboard() {
         }}
       >
         <div style={{ textAlign: "center", color: theme.colors.error }}>
-          <div style={{ fontSize: "48px", marginBottom: "16px" }}>⚠️</div>
           <div style={{ fontSize: "16px", fontWeight: 600, marginBottom: "8px" }}>
             Failed to load metrics
           </div>
@@ -259,7 +258,6 @@ export function MetricsDashboard() {
         <KPICard
           label="Alerts / Minute"
           value={current.alertsPerMinute}
-          icon="⚡"
           color={current.alertsPerMinute > 10 ? theme.colors.warning : theme.colors.text}
           subtext="Rolling 60-second window"
         />
@@ -267,7 +265,6 @@ export function MetricsDashboard() {
           label="Avg Response Time"
           value={(current.avgResponseTimeMs / 1000).toFixed(1)}
           unit="sec"
-          icon="⏱️"
           color={
             current.avgResponseTimeMs > 30000
               ? theme.colors.error
@@ -281,7 +278,6 @@ export function MetricsDashboard() {
           label="Fleet Health"
           value={current.fleetHealthPercent.toFixed(0)}
           unit="%"
-          icon="💚"
           color={
             current.fleetHealthPercent >= 90
               ? theme.colors.success
@@ -294,7 +290,6 @@ export function MetricsDashboard() {
         <KPICard
           label="Open Alerts"
           value={current.totalAlerts}
-          icon="🔔"
           color={current.totalAlerts > 0 ? theme.colors.warning : theme.colors.success}
           subtext={
             current.criticalCount > 0
@@ -305,7 +300,6 @@ export function MetricsDashboard() {
         <KPICard
           label="Critical Incidents"
           value={current.criticalCount}
-          icon="🚨"
           color={current.criticalCount > 0 ? theme.colors.critical : theme.colors.success}
           subtext={current.criticalCount > 0 ? "Requires attention" : "None active"}
         />

@@ -5,14 +5,14 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useTheme } from "../contexts/ThemeContext";
 import type { Vehicle, VehicleState, Alert } from "../types";
+import { 
+  assignVehicleToRoute, 
+  mapPositionToRoute, 
+  getRoutesCenter,
+  type MappedPosition 
+} from "../utils/syntheticRoutes";
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || "";
-
-// Coordinate transformation constants
-// This is a visualization mapping, not real geography
-const COORD_SCALE = 1e-5; // Scale factor for x,y to lng,lat conversion
-const LNG_BASE = -122.4194; // San Francisco as base
-const LAT_BASE = 37.7749;
 
 interface MapViewProps {
   vehicles: Vehicle[];
@@ -40,17 +40,24 @@ export function MapView({
   const [showHeatMap, setShowHeatMap] = useState(false);
   const heatMapInitialized = useRef(false);
 
+  // Helper to get mapped coordinates for a vehicle
+  const getMappedPosition = (vehicleId: string, x: number, y: number): MappedPosition => {
+    const route = assignVehicleToRoute(vehicleId);
+    return mapPositionToRoute(x, y, route);
+  };
+
   // Generate heat map GeoJSON from alerts
   const heatMapData = useMemo(() => {
     const openAlerts = alerts.filter((a) => a.status === "OPEN");
     
     // Find vehicle positions for alerts
-    const vehiclePositions = new Map<string, { x: number; y: number }>();
+    const vehiclePositions = new Map<string, { x: number; y: number; vehicleId: string }>();
     vehicles.forEach((v) => {
       if (v.last_position_x != null && v.last_position_y != null) {
         vehiclePositions.set(v.vehicle_id, {
           x: v.last_position_x,
           y: v.last_position_y,
+          vehicleId: v.vehicle_id,
         });
       }
     });
@@ -60,8 +67,8 @@ export function MapView({
       .filter((alert) => vehiclePositions.has(alert.vehicle_id))
       .map((alert) => {
         const pos = vehiclePositions.get(alert.vehicle_id)!;
-        const lng = LNG_BASE + pos.x * COORD_SCALE;
-        const lat = LAT_BASE + pos.y * COORD_SCALE;
+        // Use synthetic route mapping for realistic positioning
+        const mapped = getMappedPosition(pos.vehicleId, pos.x, pos.y);
         
         // Weight by severity: CRITICAL=3, WARNING=2, INFO=1
         const weight =
@@ -77,7 +84,7 @@ export function MapView({
           },
           geometry: {
             type: "Point" as const,
-            coordinates: [lng, lat],
+            coordinates: [mapped.lng, mapped.lat],
           },
         };
       });
@@ -88,7 +95,7 @@ export function MapView({
     };
   }, [alerts, vehicles]);
 
-  // Initialize map center from first ego vehicle or provided center
+  // Initialize map center from first ego vehicle or SF routes center
   useEffect(() => {
     if (initialCenter) return;
 
@@ -98,13 +105,21 @@ export function MapView({
     const centerVehicle = egoVehicle || vehicles[0];
 
     if (centerVehicle != null && centerVehicle.last_position_x != null && centerVehicle.last_position_y != null) {
-      const lng = LNG_BASE + centerVehicle.last_position_x * COORD_SCALE;
-      const lat = LAT_BASE + centerVehicle.last_position_y * COORD_SCALE;
-      setInitialCenter({ lng, lat });
+      // Use synthetic route mapping for centering
+      const mapped = getMappedPosition(
+        centerVehicle.vehicle_id,
+        centerVehicle.last_position_x,
+        centerVehicle.last_position_y
+      );
+      setInitialCenter({ lng: mapped.lng, lat: mapped.lat });
     } else if (mapCenter) {
-      const lng = LNG_BASE + mapCenter.x * COORD_SCALE;
-      const lat = LAT_BASE + mapCenter.y * COORD_SCALE;
-      setInitialCenter({ lng, lat });
+      // Use routes center as fallback
+      const routesCenter = getRoutesCenter();
+      setInitialCenter({ lng: routesCenter.lng, lat: routesCenter.lat });
+    } else if (vehicles.length === 0) {
+      // Default to SF routes center when no vehicles
+      const routesCenter = getRoutesCenter();
+      setInitialCenter({ lng: routesCenter.lng, lat: routesCenter.lat });
     }
   }, [vehicles, mapCenter, initialCenter]);
 
@@ -222,8 +237,12 @@ export function MapView({
         return;
       }
 
-      const lng = LNG_BASE + vehicle.last_position_x * COORD_SCALE;
-      const lat = LAT_BASE + vehicle.last_position_y * COORD_SCALE;
+      // Use synthetic route mapping for realistic road positioning
+      const mapped = getMappedPosition(
+        vehicle.vehicle_id,
+        vehicle.last_position_x,
+        vehicle.last_position_y
+      );
 
       // Get color based on state
       const getStateColor = (state: VehicleState): string => {
@@ -241,18 +260,19 @@ export function MapView({
 
       const isEgo = vehicle.vehicle_type === "Autonomous Vehicle" || vehicle.vehicle_id.includes("ego");
       const isSelected = vehicle.vehicle_id === selectedVehicleId;
-      const baseSize = isEgo ? 16 : 10;
+      const baseSize = isEgo ? 20 : 14;
       const size = isSelected ? baseSize + 4 : baseSize;
       const color = getStateColor(vehicle.state);
       
+      // Use route bearing for rotation, fallback to yaw if available
       const rotationDeg = vehicle.last_yaw != null 
         ? (90 - (vehicle.last_yaw * 180 / Math.PI)) % 360 
-        : 0;
+        : mapped.bearing;
 
       const existingMarker = markersRef.current.get(vehicle.vehicle_id);
 
       if (existingMarker) {
-        existingMarker.setLngLat([lng, lat]);
+        existingMarker.setLngLat([mapped.lng, mapped.lat]);
         const el = existingMarker.getElement();
         if (el) {
           updateMarkerElement(el, vehicle, isEgo, isSelected, size, color, rotationDeg);
@@ -261,7 +281,7 @@ export function MapView({
         const el = createMarkerElement(vehicle, isEgo, isSelected, size, color, rotationDeg);
 
         const marker = new mapboxgl.Marker({ element: el })
-          .setLngLat([lng, lat])
+          .setLngLat([mapped.lng, mapped.lat])
           .addTo(map);
 
         el.addEventListener("click", () => {
@@ -272,6 +292,68 @@ export function MapView({
       }
     });
   }, [vehicles, selectedVehicleId, onVehicleClick, initialCenter, theme]);
+
+  // SVG car icon for vehicle markers (top-down view, pointing up)
+  const getCarSvg = (color: string, isEgo: boolean, isSelected: boolean, size: number): string => {
+    const strokeWidth = isSelected ? 2 : 1;
+    const strokeColor = isSelected 
+      ? (theme.mode === "dark" ? "#fff" : "#000")
+      : color;
+    const glowFilter = isSelected 
+      ? `<filter id="glow"><feGaussianBlur stdDeviation="2" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`
+      : '';
+    const filterAttr = isSelected ? 'filter="url(#glow)"' : '';
+    
+    if (isEgo) {
+      // Larger, more detailed autonomous vehicle icon
+      return `
+        <svg width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          ${glowFilter}
+          <g ${filterAttr}>
+            <!-- Car body -->
+            <rect x="5" y="2" width="14" height="20" rx="4" ry="4" 
+                  fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+            <!-- Windshield -->
+            <rect x="7" y="4" width="10" height="5" rx="2" ry="2" 
+                  fill="${theme.mode === "dark" ? "#1a1a2e" : "#2d3748"}" opacity="0.8"/>
+            <!-- Rear window -->
+            <rect x="7" y="15" width="10" height="4" rx="2" ry="2" 
+                  fill="${theme.mode === "dark" ? "#1a1a2e" : "#2d3748"}" opacity="0.8"/>
+            <!-- Headlights -->
+            <circle cx="8" cy="3" r="1.5" fill="#fff" opacity="0.9"/>
+            <circle cx="16" cy="3" r="1.5" fill="#fff" opacity="0.9"/>
+            <!-- Side mirrors -->
+            <rect x="2" y="6" width="3" height="2" rx="1" fill="${color}" stroke="${strokeColor}" stroke-width="0.5"/>
+            <rect x="19" y="6" width="3" height="2" rx="1" fill="${color}" stroke="${strokeColor}" stroke-width="0.5"/>
+            <!-- AV sensor dome (roof) -->
+            <circle cx="12" cy="10" r="2.5" fill="${theme.mode === "dark" ? "#4a5568" : "#718096"}" stroke="#fff" stroke-width="0.5"/>
+            <circle cx="12" cy="10" r="1" fill="${theme.colors.primary}" opacity="0.8"/>
+          </g>
+        </svg>
+      `;
+    } else {
+      // Smaller tracked vehicle icon
+      return `
+        <svg width="${size}" height="${size}" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+          ${glowFilter}
+          <g ${filterAttr}>
+            <!-- Car body -->
+            <rect x="4" y="2" width="12" height="16" rx="3" ry="3" 
+                  fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+            <!-- Windshield -->
+            <rect x="6" y="4" width="8" height="4" rx="1.5" ry="1.5" 
+                  fill="${theme.mode === "dark" ? "#1a1a2e" : "#2d3748"}" opacity="0.7"/>
+            <!-- Rear window -->
+            <rect x="6" y="12" width="8" height="3" rx="1.5" ry="1.5" 
+                  fill="${theme.mode === "dark" ? "#1a1a2e" : "#2d3748"}" opacity="0.7"/>
+            <!-- Headlights -->
+            <circle cx="7" cy="3" r="1" fill="#fff" opacity="0.85"/>
+            <circle cx="13" cy="3" r="1" fill="#fff" opacity="0.85"/>
+          </g>
+        </svg>
+      `;
+    }
+  };
 
   // Helper to create marker element
   const createMarkerElement = (
@@ -291,55 +373,31 @@ export function MapView({
   // Helper to update marker element styles
   const updateMarkerElement = (
     el: HTMLElement,
-    vehicle: Vehicle,
+    _vehicle: Vehicle,
     isEgo: boolean,
     isSelected: boolean,
     size: number,
     color: string,
     rotationDeg: number
   ) => {
-    const showHeading = vehicle.last_yaw != null;
+    // Set container styles
+    el.style.width = `${size}px`;
+    el.style.height = `${size}px`;
+    el.style.cursor = "pointer";
+    el.style.transition = "transform 0.3s ease-out, filter 0.2s ease";
+    el.style.transform = `rotate(${rotationDeg}deg)`;
     
-    if (isEgo) {
-      el.style.width = `${size}px`;
-      el.style.height = `${size}px`;
-      el.style.borderRadius = "0";
-      el.style.backgroundColor = "transparent";
-      el.style.border = "none";
-      el.style.cursor = "pointer";
-      el.style.transform = showHeading ? `rotate(${rotationDeg}deg)` : "";
-      el.style.transition = "transform 0.3s ease-out";
-      
-      el.style.borderLeft = `${size / 2}px solid transparent`;
-      el.style.borderRight = `${size / 2}px solid transparent`;
-      el.style.borderBottom = `${size}px solid ${color}`;
-      
-      if (isSelected) {
-        el.style.filter = `drop-shadow(0 0 4px ${color}) drop-shadow(0 0 8px ${color})`;
-      } else {
-        el.style.filter = `drop-shadow(0 2px 3px rgba(0,0,0,0.3))`;
-      }
+    // Apply drop shadow for depth
+    if (isSelected) {
+      el.style.filter = `drop-shadow(0 0 6px ${color}) drop-shadow(0 0 12px ${color})`;
     } else {
-      el.style.width = `${size}px`;
-      el.style.height = `${size}px`;
-      el.style.borderRadius = "50%";
-      el.style.backgroundColor = color;
-      el.style.border = isSelected 
-        ? `2px solid ${theme.mode === "dark" ? "#fff" : "#000"}`
-        : `1px solid ${color}`;
-      el.style.cursor = "pointer";
-      el.style.boxShadow = isSelected 
-        ? `0 0 8px ${color}, 0 0 16px ${color}`
-        : theme.mode === "dark" 
-          ? "0 2px 4px rgba(0,0,0,0.5)"
-          : "0 2px 4px rgba(0,0,0,0.3)";
-      
-      el.style.borderLeft = "";
-      el.style.borderRight = "";
-      el.style.borderBottom = "";
-      el.style.transform = "";
-      el.style.filter = "";
+      el.style.filter = theme.mode === "dark" 
+        ? "drop-shadow(0 2px 4px rgba(0,0,0,0.6))"
+        : "drop-shadow(0 2px 4px rgba(0,0,0,0.4))";
     }
+    
+    // Set SVG content
+    el.innerHTML = getCarSvg(color, isEgo, isSelected, size);
   };
 
   // Count open alerts for toggle badge
@@ -360,7 +418,6 @@ export function MapView({
           backgroundColor: theme.colors.background,
         }}
       >
-        <div style={{ fontSize: "32px", marginBottom: "16px" }}>🗺️</div>
         <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "8px" }}>
           Map Not Configured
         </div>
@@ -443,7 +500,6 @@ export function MapView({
         }}
         title={showHeatMap ? "Hide incident heat map" : "Show incident heat map"}
       >
-        <span style={{ fontSize: "14px" }}>🔥</span>
         Heat Map
         {openAlertCount > 0 && (
           <span

@@ -201,7 +201,6 @@ export function MainDashboard({ demoMode }: MainDashboardProps) {
                 padding: "20px",
               }}
             >
-              <div style={{ fontSize: "24px" }}>⚠️</div>
               <div>Connection Error</div>
               <div style={{ fontSize: "13px", color: theme.colors.textSecondary }}>
                 {error}

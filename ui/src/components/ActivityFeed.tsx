@@ -93,13 +93,13 @@ export function ActivityFeed({ alerts, maxItems = 10 }: ActivityFeedProps) {
   const getActivityIcon = (type: ActivityItem["type"]) => {
     switch (type) {
       case "alert_created":
-        return "🔔";
+        return "•";
       case "alert_acknowledged":
-        return "👁️";
+        return "•";
       case "alert_resolved":
         return "✓";
       case "vehicle_state_change":
-        return "🚗";
+        return "•";
       default:
         return "•";
     }

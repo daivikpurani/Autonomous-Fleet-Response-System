@@ -56,7 +56,6 @@ export function IncidentPanel({ alert }: IncidentPanelProps) {
           gap: "8px",
         }}
       >
-        <div style={{ fontSize: "24px", opacity: 0.5 }}>📋</div>
         <div style={{ fontSize: "13px" }}>Select an alert to view incident details</div>
       </div>
     );
